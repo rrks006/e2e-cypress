@@ -1,0 +1,110 @@
+name: End-to-end tests
+on: push
+jobs:
+  cypress-run:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # Install npm dependencies, cache them correctly
+      # and run all Cypress tests
+      - name: Cypress run
+        uses: cypress-io/github-action@v6
+
+      - name: Parse test report
+        id: parse-test-report
+        run: |
+          
+          passed_tests=$(grep "Passed" cypress/reports/*.html | wc -l)
+          failed_tests=$(grep "Failed" cypress/reports/*.html | wc -l)
+          total_tests=$((passed_tests + failed_tests))
+          
+          echo "Total Tests: $total_tests"
+          echo "Passed Tests: $passed_tests"
+          echo "Failed Tests: $failed_tests"
+          
+         
+          success_rate=$(( (passed_tests * 100) / total_tests ))
+          failure_rate=$(( (failed_tests * 100) / total_tests ))
+          
+          echo "Success Rate: $success_rate%"
+          echo "Failure Rate: $failure_rate%"
+          
+          
+          echo "::set-output name=success_rate::$success_rate"
+          echo "::set-output name=failure_rate::$failure_rate
+
+      # Always execute this step after Cypress run
+      - name: Final Steps
+        if: always()  # This ensures that the step is always executed
+        run: |
+          success_rate=${{ steps.parse-test-report.outputs.success_rate }}
+          if [[ $success_rate -ge 80 ]]; then
+            echo "Cypress run passed!"
+          else
+            echo "Cypress run failed!"
+            exit 1
+          if
+        shell: bash
+
+       # Upload screenshots on failure
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v2
+        if: failure()  # This step only runs if there's a failure
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+
+      # Upload videos
+      - name: Upload videos
+        uses: actions/upload-artifact@v2
+        if: always()  # This step always runs
+        with:
+          name: cypress-videos
+          path: cypress/videos
+
+      # Set the MAIL_CONNECTION as an environment variable
+      - name: Set environment variable
+        run: echo "MAIL_CONNECTION=${{ secrets.MAIL_CONNECTION }}" >> $GITHUB_ENV  
+
+      - name: Send mail
+        uses: dawidd6/action-send-mail@v3
+        if: failure()
+        with:
+            # Specify connection via URL (replaces server_address, server_port, secure,
+            # username and password)
+            #
+            # Format:
+            #
+            #  * smtp://user:password@server:port
+            #  * smtp+starttls://user:password@server:port
+             
+            connection_url: ${{secrets.MAIL_CONNECTION}}
+            # Required mail server address if not connection_url:
+            server_address: smtp.office365.com
+            # Server port, default 25:
+            server_port: 587
+            # Optional whether this connection use TLS (default is true if server_port is 465)
+            secure: true
+            # Required mail subject:
+            subject: Action Needed:Test Case Failures Detected on Project- Requesting Workflow Analysis
+            # Required recipients' addresses:
+            to: developer1@org.com,developer2@org.com
+            # Required sender full name (address can be skipped):
+            from: Tester # <user@example.com>
+            # Optional plain body:
+            body: |
+              Hello,
+
+              Your Test Automation Suite has just finished its execution but we have encountered some test failures.
+              
+              Please review the Test Execution Summary in the Workflow.
+
+              Best Regards,
+              The Test Team.
+
+              _________________________________________________________________________________________________________________
+              Note: This email was sent automatically by organization. Please do not reply.
+            
+            # Optional priority: 'high', 'normal' (default) or 'low'
+            priority: high 
