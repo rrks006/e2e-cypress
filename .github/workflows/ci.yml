@@ -10,6 +10,7 @@ jobs:
       - name: Run Server
         if: always()  # This ensures that the step is always executed
         run: |
+          cd target-app
           npm run start
         shell: bash
 
