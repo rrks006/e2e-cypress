@@ -9,8 +9,10 @@ jobs:
 
       - name: Run Server
         if: always()  # This ensures that the step is always executed
-        working-directory: ./target-app
-        run: npm run start
+        run: |
+          pwd
+          cd target-app
+          npm run start
 
       # Install npm dependencies, cache them correctly
       # and run all Cypress tests
